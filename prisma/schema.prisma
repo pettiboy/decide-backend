@@ -1,0 +1,53 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql" 
+  url      = env("DATABASE_URL") 
+}
+
+model Decision {
+  id         String      @id @default(uuid()) 
+  createdAt  DateTime    @default(now()) 
+  choices    Choice[]    
+  comparisons Comparison[] 
+  rankedChoices RankedChoice[] 
+}
+
+model Choice {
+  id         Int       @id @default(autoincrement()) 
+  decision   Decision  @relation(fields: [decisionId], references: [id]) 
+  decisionId String    @map("decision_id") 
+  text       String    
+  @@map("choices") 
+  choice1Comparisons Comparison[] @relation("choice1Comparisons")
+  choice2Comparisons Comparison[] @relation("choice2Comparisons")
+  Comparison Comparison[]
+  RankedChoice RankedChoice[]
+}
+
+model Comparison {
+  id           Int        @id @default(autoincrement()) 
+  decision     Decision   @relation(fields: [decisionId], references: [id]) 
+  decisionId   String     @map("decision_id") 
+  choice1Id    Int        @map("choice1_id") 
+  choice2Id    Int        @map("choice2_id") 
+  choice1      Choice     @relation("choice1Comparisons", fields: [choice1Id], references: [id]) 
+  choice2      Choice     @relation("choice2Comparisons", fields: [choice2Id], references: [id]) 
+  winnerId     Int?       @map("winner_id") 
+  winner       Choice?    @relation(fields: [winnerId], references: [id]) 
+  createdAt    DateTime   @default(now()) 
+  @@map("comparisons") 
+}
+
+model RankedChoice {
+  id         Int       @id @default(autoincrement())
+  decision   Decision  @relation(fields: [decisionId], references: [id])
+  decisionId String    @map("decision_id")
+  choiceId   Int       @map("choice_id")
+  choice     Choice    @relation(fields: [choiceId], references: [id])
+  rank       Int       
+  @@unique([decisionId, rank]) 
+  @@map("ranked_choices") 
+}
