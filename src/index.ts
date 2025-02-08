@@ -12,7 +12,21 @@ const prisma = new PrismaClient();
 
 app.use(express.json());
 
-app.use(cors<Request>());
+// cors
+const allowedOrigins = ["https://decide.pettiboy.com"];
+const corsOptions = {
+  origin: (
+    origin: string | undefined,
+    callback: (err: Error | null, allow?: boolean) => void
+  ) => {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      return callback(null, true);
+    }
+    return callback(new Error("Origin not allowed by CORS"));
+  },
+};
+app.use(cors(corsOptions));
 
 app.get("/", async (req: Request, res: Response) => {
   try {
