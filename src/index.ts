@@ -4,12 +4,15 @@ import { createDecisionHandler } from "./handlers/createDecisionHandler";
 import { getNextComparisonHandler } from "./handlers/getNextComparisonHandler";
 import { submitComparisonHandler } from "./handlers/submitComparisonHandler";
 import { getResultsHandler } from "./handlers/getResultsHandler";
+import cors from "cors";
 
 const app = express();
 const port = process.env.PORT || 3000;
 const prisma = new PrismaClient();
 
 app.use(express.json());
+
+app.use(cors<Request>());
 
 app.get("/", async (req: Request, res: Response) => {
   try {
