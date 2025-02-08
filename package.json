@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
+    "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "concurrently \"tsc -w\" \"nodemon dist/index.js\""
+    "dev": "nodemon"
   },
   "keywords": [],
   "author": "",
@@ -13,13 +14,15 @@
   "dependencies": {
     "@prisma/client": "^6.3.1",
     "express": "^4.21.2",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "uninstall": "^0.0.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",
     "concurrently": "^9.1.2",
     "nodemon": "^3.1.9",
     "prisma": "^6.3.1",
-    "ts-node": "^10.9.2"
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0"
   }
 }
