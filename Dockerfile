@@ -22,7 +22,6 @@ RUN npm install --omit=dev
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY prisma prisma/
-COPY public public/
 
 CMD ["npm", "start"]
 
