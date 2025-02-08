@@ -1,0 +1,11 @@
+{
+    email pettiwalahussain+decide-backend@gmail.com
+}
+
+decide.pettiboy.com {
+    reverse_proxy decide-app:8080
+
+    tls {
+        on_demand
+    }
+}

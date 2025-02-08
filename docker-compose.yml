@@ -22,5 +22,23 @@ services:
       - db
     restart: always
 
+  caddy:
+    image: caddy:latest
+    container_name: decide-caddy
+    restart: always
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - graphql-engine
+    logging:
+      driver: "json-file"
+
 volumes:
   db_data:
+  caddy_data:
+  caddy_config:
