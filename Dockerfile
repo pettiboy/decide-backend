@@ -21,12 +21,16 @@ WORKDIR /app
 # Copy package files (if needed for runtime scripts)
 COPY package*.json ./
 
-# Copy the node_modules from the builder stage
+# Copy the node_modules folder from the builder stage
 COPY --from=builder /app/node_modules ./node_modules
 
-# Copy build artifacts and prisma folder from builder stage
+# Copy built artifacts and prisma folder from builder stage
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 
+# Copy the entrypoint script and set executable permissions
+COPY entrypoint.sh ./entrypoint.sh
+RUN chmod +x entrypoint.sh
+
 EXPOSE 3000
-CMD ["npm", "start"]
+CMD ["./entrypoint.sh"]
