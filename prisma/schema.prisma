@@ -28,17 +28,20 @@ model Choice {
 }
 
 model Comparison {
-  id           Int        @id @default(autoincrement()) 
-  decision     Decision   @relation(fields: [decisionId], references: [id]) 
-  decisionId   String     @map("decision_id") 
-  choice1Id    Int        @map("choice1_id") 
-  choice2Id    Int        @map("choice2_id") 
-  choice1      Choice     @relation("choice1Comparisons", fields: [choice1Id], references: [id]) 
-  choice2      Choice     @relation("choice2Comparisons", fields: [choice2Id], references: [id]) 
-  winnerId     Int?       @map("winner_id") 
-  winner       Choice?    @relation(fields: [winnerId], references: [id]) 
-  createdAt    DateTime   @default(now()) 
-  @@map("comparisons") 
+  id           Int        @id @default(autoincrement())
+  decision     Decision   @relation(fields: [decisionId], references: [id])
+  decisionId   String     @map("decision_id")
+  choice1Id    Int        @map("choice1_id")
+  choice2Id    Int        @map("choice2_id")
+  choice1      Choice     @relation("choice1Comparisons", fields: [choice1Id], references: [id])
+  choice2      Choice     @relation("choice2Comparisons", fields: [choice2Id], references: [id])
+  winnerId     Int?       @map("winner_id")
+  winner       Choice?    @relation(fields: [winnerId], references: [id])
+  createdAt    DateTime   @default(now())
+  servedAt     DateTime?  
+  
+  @@map("comparisons")
+  @@unique([decisionId, choice1Id, choice2Id])
 }
 
 model RankedChoice {
