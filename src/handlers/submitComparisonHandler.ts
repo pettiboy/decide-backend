@@ -63,18 +63,23 @@ export const submitComparisonHandler = async (
     return;
   }
 
-  // Check if this unordered pair has already been recorded.
-  const existingComparison = await prisma.comparison.findFirst({
+  // Determine how many comparisons per pair are required.
+  const requiredComparisonsPerPair = decision.requiredComparisonsPerPair || 1;
+
+  // Count how many comparisons have already been recorded for this normalized pair.
+  const existingCount = await prisma.comparison.count({
     where: {
       decisionId: decisionId,
       choice1Id: normalizedChoice1Id,
       choice2Id: normalizedChoice2Id,
     },
   });
-  if (existingComparison) {
-    res
-      .status(409)
-      .json({ error: "This comparison has already been recorded." });
+
+  if (existingCount >= requiredComparisonsPerPair) {
+    res.status(409).json({
+      error:
+        "This comparison has already been recorded the required number of times.",
+    });
     return;
   }
 

@@ -14,7 +14,7 @@ export const getResultsHandler = async (
   const { decisionId } = req.params;
 
   try {
-    // 1. Fetch decision with its choices and comparisons.
+    // 1. Fetch the decision along with its choices and comparisons.
     const decision = await prisma.decision.findUnique({
       where: { id: decisionId },
       include: {
@@ -34,9 +34,10 @@ export const getResultsHandler = async (
     const comparisons = decision.comparisons;
 
     // 2. Map each choice ID to an index.
+    // Using a generic type here so it works whether IDs are strings or numbers.
     const candidateIds = choices.map((choice) => choice.id);
     const n = candidateIds.length;
-    const idToIndex = new Map<number, number>();
+    const idToIndex = new Map<(typeof candidateIds)[number], number>();
     candidateIds.forEach((id, idx) => idToIndex.set(id, idx));
 
     // 3. Build the pairwise wins matrix d:
@@ -44,7 +45,8 @@ export const getResultsHandler = async (
     const d: number[][] = Array.from({ length: n }, () => Array(n).fill(0));
     for (const comp of comparisons) {
       if (comp.winnerId !== null) {
-        // Determine loserId: if winner is choice1Id then loser is choice2Id, else vice versa.
+        // Determine loserId:
+        // If winnerId equals choice1Id then loser is choice2Id; otherwise, loser is choice1Id.
         const loserId =
           comp.winnerId === comp.choice1Id ? comp.choice2Id : comp.choice1Id;
         const i = idToIndex.get(comp.winnerId);
@@ -55,12 +57,12 @@ export const getResultsHandler = async (
     }
 
     // 4. Compute the strongest path matrix p using Schulze's algorithm.
-    // Initialize p[i][j] = d[i][j] for all distinct i, j.
+    // Initialize: p[i][j] = d[i][j] for i ≠ j, and 0 on the diagonal.
     const p: number[][] = Array.from({ length: n }, (_, i) =>
       Array.from({ length: n }, (_, j) => (i === j ? 0 : d[i][j]))
     );
 
-    // For every candidate k, update the p matrix.
+    // Update p with the Floyd–Warshall approach.
     for (let k = 0; k < n; k++) {
       for (let i = 0; i < n; i++) {
         if (i === k) continue;
@@ -71,8 +73,8 @@ export const getResultsHandler = async (
       }
     }
 
-    // 5. Compute a score for each candidate:
-    // Count for each candidate i how many candidates j (j != i) satisfy p[i][j] > p[j][i].
+    // 5. Compute a score for each candidate.
+    // The score is the count of other candidates j for which p[i][j] > p[j][i].
     const scores: number[] = Array(n).fill(0);
     for (let i = 0; i < n; i++) {
       for (let j = 0; j < n; j++) {
@@ -82,20 +84,24 @@ export const getResultsHandler = async (
       }
     }
 
-    // 6. Combine choices with scores and sort them descending by score.
-    // In case of ties, sort by candidate id (ascending).
+    // 6. Combine choices with scores.
     const results = choices.map((choice) => ({
       id: choice.id,
       text: choice.text, // adjust if your choice field is named differently
       score: scores[idToIndex.get(choice.id)!],
     }));
 
+    // Sort results in descending order by score.
+    // For ties, sort by candidate id (numerically or lexically depending on the type).
     results.sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
-      return a.id - b.id;
+      if (typeof a.id === "number" && typeof b.id === "number") {
+        return a.id - b.id;
+      }
+      return a.id.toString().localeCompare(b.id.toString());
     });
 
-    // 7. Assign ranks based on sorted order.
+    // 7. Assign ranks based on sorted order (ties receive the same rank).
     let currentRank = 1;
     let lastScore: number | null = null;
     const rankedResults = results.map((result, idx) => {

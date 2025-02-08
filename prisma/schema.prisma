@@ -9,6 +9,8 @@ datasource db {
 
 model Decision {
   id         String      @id @default(uuid()) 
+  title      String?
+  requiredComparisonsPerPair  Int? @default(1)
   createdAt  DateTime    @default(now()) 
   choices    Choice[]    
   comparisons Comparison[] 
@@ -41,7 +43,6 @@ model Comparison {
   servedAt     DateTime?  
   
   @@map("comparisons")
-  @@unique([decisionId, choice1Id, choice2Id])
 }
 
 model RankedChoice {
