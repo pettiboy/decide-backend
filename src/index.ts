@@ -3,6 +3,7 @@ import { PrismaClient } from "@prisma/client";
 import { createDecisionHandler } from "./handlers/createDecisionHandler";
 import { getNextComparisonHandler } from "./handlers/getNextComparisonHandler";
 import { submitComparisonHandler } from "./handlers/submitComparisonHandler";
+import { getResultsHandler } from "./handlers/getResultsHandler";
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -25,6 +26,7 @@ app.get("/", async (req: Request, res: Response) => {
 app.post("/decisions", createDecisionHandler);
 app.get("/decisions/:decisionId/comparisons/next", getNextComparisonHandler);
 app.post("/decisions/:decisionId/comparisons", submitComparisonHandler);
+app.get("/decisions/:decisionId/results", getResultsHandler);
 
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
