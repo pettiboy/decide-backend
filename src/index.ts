@@ -1,9 +1,12 @@
 import express, { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
+import { createDecisionHandler } from "./handlers/createDecisionHandler";
 
 const app = express();
 const port = process.env.PORT || 3000;
 const prisma = new PrismaClient();
+
+app.use(express.json());
 
 app.get("/", async (req: Request, res: Response) => {
   try {
@@ -16,6 +19,8 @@ app.get("/", async (req: Request, res: Response) => {
     await prisma.$disconnect();
   }
 });
+
+app.post("/decisions", createDecisionHandler);
 
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
