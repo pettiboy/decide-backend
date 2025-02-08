@@ -2,8 +2,8 @@
     email pettiwalahussain+decide-backend@gmail.com
 }
 
-decide.pettiboy.com {
-    reverse_proxy decide-app:8080
+decide-rest-api.pettiboy.com {
+    reverse_proxy decide-app:3000
 
     tls {
         on_demand
