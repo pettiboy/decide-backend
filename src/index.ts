@@ -13,7 +13,10 @@ const prisma = new PrismaClient();
 app.use(express.json());
 
 // cors
-const allowedOrigins = ["https://decide.pettiboy.com"];
+const allowedOrigins =
+  process.env.NODE_ENV === "production"
+    ? ["https://decide.pettiboy.com"]
+    : ["https://decide.pettiboy.com", "http://localhost:5173"];
 const corsOptions = {
   origin: (
     origin: string | undefined,
