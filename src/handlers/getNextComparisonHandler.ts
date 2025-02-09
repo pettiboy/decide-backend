@@ -1,6 +1,12 @@
 import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
-import { update, MU_PRIOR, SIGMA_SQ_PRIOR, ALPHA_PRIOR, BETA_PRIOR } from "../algorithms/crowdBT";
+import {
+  update,
+  MU_PRIOR,
+  SIGMA_SQ_PRIOR,
+  ALPHA_PRIOR,
+  BETA_PRIOR,
+} from "../algorithms/crowdBT";
 
 const prisma = new PrismaClient();
 
@@ -94,7 +100,10 @@ export const getNextComparisonHandler = async (
 
     // 4. From all possible pairs, identify those that have been compared
     // fewer times than required, and choose the pair with the smallest absolute mu difference.
-    let bestPair: { choice1: typeof choices[number]; choice2: typeof choices[number] } | null = null;
+    let bestPair: {
+      choice1: (typeof choices)[number];
+      choice2: (typeof choices)[number];
+    } | null = null;
     let bestDiff = Infinity;
     for (let i = 0; i < choices.length; i++) {
       for (let j = i + 1; j < choices.length; j++) {
@@ -107,7 +116,9 @@ export const getNextComparisonHandler = async (
             (comp.choice1Id === id2 && comp.choice2Id === id1)
         ).length;
         if (pairCount < requiredComparisonsPerPair) {
-          const diff = Math.abs(candidateParams[id1].mu - candidateParams[id2].mu);
+          const diff = Math.abs(
+            candidateParams[id1].mu - candidateParams[id2].mu
+          );
           if (diff < bestDiff) {
             bestDiff = diff;
             bestPair = { choice1: choices[i], choice2: choices[j] };
@@ -118,7 +129,7 @@ export const getNextComparisonHandler = async (
 
     // 5. If no eligible pair is found then all comparisons are complete.
     if (!bestPair) {
-      return res.status(200).json({
+      res.status(200).json({
         // Even though a pair is required by the frontend, if no comparison remains
         // return a dummy pair (the frontend should then navigate away).
         choice1: { id: choices[0].id, text: choices[0].text },
@@ -126,10 +137,10 @@ export const getNextComparisonHandler = async (
         comparisonsRemaining: 0,
         totalComparisons,
       });
+      return;
     }
 
-    // 6. Return the next comparison with the required fields.
-    return res.status(200).json({
+    res.status(200).json({
       choice1: { id: bestPair.choice1.id, text: bestPair.choice1.text },
       choice2: { id: bestPair.choice2.id, text: bestPair.choice2.text },
       comparisonsRemaining,
