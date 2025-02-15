@@ -1,5 +1,6 @@
-import { Request, Response } from "express";
+import { Response } from "express";
 import { PrismaClient } from "@prisma/client";
+import { update } from "../algorithms/crowdBT";
 import { AuthenticatedRequest } from "../middleware/authMiddleware";
 
 const prisma = new PrismaClient();
@@ -40,7 +41,7 @@ export const submitComparisonHandler = async (
   const normalizedChoice1Id = Math.min(choice1Id, choice2Id);
   const normalizedChoice2Id = Math.max(choice1Id, choice2Id);
 
-  // Check if user has already voted
+  // Check if user has already voted on this pair.
   const existingVote = await prisma.comparison.findFirst({
     where: {
       choice1Id: normalizedChoice1Id,
@@ -54,10 +55,9 @@ export const submitComparisonHandler = async (
     return;
   }
 
-  // Determine the winner based on chosenOption.
+  // Determine winner and loser based on chosenOption.
   let winnerId: number | null = null;
   if (chosenOption === "choice 1") {
-    // If the original order already has the lower ID as choice1, winner is choice1; otherwise, it's choice2.
     winnerId = normalizedChoice1Id === choice1Id ? choice1Id : choice2Id;
   } else if (chosenOption === "choice 2") {
     winnerId = normalizedChoice1Id === choice1Id ? choice2Id : choice1Id;
@@ -65,8 +65,15 @@ export const submitComparisonHandler = async (
     res.status(200).json({ status: "skip_acknowledged" });
     return;
   }
+  // because we return if winnerId is not found
+  winnerId = winnerId as number;
 
-  // Check if the decision exists and verify that both choices belong to it.
+  const loserId =
+    winnerId === normalizedChoice1Id
+      ? normalizedChoice2Id
+      : normalizedChoice1Id;
+
+  // Check that the decision exists and the provided choices belong to it.
   const decision = await prisma.decision.findUnique({
     where: { id: decisionId },
     include: { choices: true },
@@ -86,17 +93,75 @@ export const submitComparisonHandler = async (
     return;
   }
 
-  // Create the Comparison record with userId
+  // Perform incremental updates in a transaction.
   try {
-    await prisma.comparison.create({
-      data: {
-        decisionId,
-        choice1Id: normalizedChoice1Id,
-        choice2Id: normalizedChoice2Id,
-        winnerId,
-        userId,
-        servedAt: new Date(),
-      },
+    await prisma.$transaction(async (tx) => {
+      // Retrieve the current global parameters from the decision.
+      const decisionRecord = await tx.decision.findUnique({
+        where: { id: decisionId },
+        select: { globalAlpha: true, globalBeta: true },
+      });
+      if (!decisionRecord) throw new Error("Decision not found");
+
+      // Retrieve the current candidate parameters for both choices.
+      const winnerCandidate = await tx.choice.findUnique({
+        where: { id: winnerId },
+        select: { mu: true, sigmaSq: true },
+      });
+      const loserCandidate = await tx.choice.findUnique({
+        where: { id: loserId },
+        select: { mu: true, sigmaSq: true },
+      });
+      if (!winnerCandidate || !loserCandidate) {
+        throw new Error("One or both candidate records not found");
+      }
+
+      // Compute the updated parameters using your Crowd‑BT algorithm.
+      const result = update(
+        decisionRecord.globalAlpha,
+        decisionRecord.globalBeta,
+        winnerCandidate.mu,
+        winnerCandidate.sigmaSq,
+        loserCandidate.mu,
+        loserCandidate.sigmaSq
+      );
+
+      // Update the candidate parameters.
+      await tx.choice.update({
+        where: { id: winnerId },
+        data: {
+          mu: result.updatedMuWinner,
+          sigmaSq: result.updatedSigmaSqWinner,
+        },
+      });
+      await tx.choice.update({
+        where: { id: loserId },
+        data: {
+          mu: result.updatedMuLoser,
+          sigmaSq: result.updatedSigmaSqLoser,
+        },
+      });
+
+      // Update the decision's global parameters.
+      await tx.decision.update({
+        where: { id: decisionId },
+        data: {
+          globalAlpha: result.updatedAlpha,
+          globalBeta: result.updatedBeta,
+        },
+      });
+
+      // Create the comparison record.
+      await tx.comparison.create({
+        data: {
+          decisionId,
+          choice1Id: normalizedChoice1Id,
+          choice2Id: normalizedChoice2Id,
+          winnerId,
+          userId,
+          servedAt: new Date(),
+        },
+      });
     });
 
     console.info(

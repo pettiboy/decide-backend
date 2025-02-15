@@ -1,15 +1,12 @@
 import { Response } from "express";
 import { PrismaClient } from "@prisma/client";
-import {
-  update,
-  MU_PRIOR,
-  SIGMA_SQ_PRIOR,
-  ALPHA_PRIOR,
-  BETA_PRIOR,
-} from "../algorithms/crowdBT";
 import { AuthenticatedRequest } from "../middleware/authMiddleware";
 
 const prisma = new PrismaClient();
+
+// Helper to generate a unique pair key.
+const getPairKey = (id1: number, id2: number): string =>
+  `${Math.min(id1, id2)}-${Math.max(id1, id2)}`;
 
 export const getNextComparisonHandler = async (
   req: AuthenticatedRequest,
@@ -19,23 +16,19 @@ export const getNextComparisonHandler = async (
   const userId = req.user!.dbUser.id;
 
   try {
-    // 1. Fetch all comparisons for scoring, and user's comparisons for filtering
+    // Fetch the decision (with choices that now include stored mu/sigmaSq)
+    // and the comparisons already made by this user.
     const [decision, userComparisons] = await Promise.all([
       prisma.decision.findUnique({
         where: { id: decisionId },
         include: {
           choices: true,
-          comparisons: {
-            where: {
-              winnerId: { not: null }, // Get all winning comparisons for scoring
-            },
-          },
         },
       }),
       prisma.comparison.findMany({
         where: {
           decisionId,
-          userId, // Get only this user's comparisons for filtering
+          userId,
         },
         select: {
           choice1Id: true,
@@ -43,6 +36,7 @@ export const getNextComparisonHandler = async (
         },
       }),
     ]);
+
     if (!decision) {
       res.status(404).json({ error: "Decision not found" });
       return;
@@ -55,71 +49,13 @@ export const getNextComparisonHandler = async (
         .json({ error: "Not enough choices to compute a comparison." });
       return;
     }
-    const comparisons = decision.comparisons;
 
-    // Get pairs this user has already compared
+    // Build a set of keys representing pairs this user has already compared.
     const userComparedPairs = new Set(
-      userComparisons.map(
-        (comp) =>
-          `${Math.min(comp.choice1Id, comp.choice2Id)}-${Math.max(
-            comp.choice1Id,
-            comp.choice2Id
-          )}`
-      )
+      userComparisons.map((comp) => getPairKey(comp.choice1Id, comp.choice2Id))
     );
 
-    // 3. Update candidate parameters using the Crowd‑BT algorithm.
-    let globalAlpha = ALPHA_PRIOR;
-    let globalBeta = BETA_PRIOR;
-    const candidateParams: { [key: number]: { mu: number; sigmaSq: number } } =
-      {};
-    choices.forEach((choice) => {
-      candidateParams[choice.id] = { mu: MU_PRIOR, sigmaSq: SIGMA_SQ_PRIOR };
-    });
-
-    const sortedComparisons = comparisons.sort(
-      (a, b) =>
-        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-    );
-
-    for (const comp of sortedComparisons) {
-      // Only process comparisons with a recorded winner.
-      if (comp.winnerId === null) continue;
-      const { choice1Id, choice2Id, winnerId } = comp;
-      let winnerIdEffective: number, loserIdEffective: number;
-      if (winnerId === choice1Id) {
-        winnerIdEffective = choice1Id;
-        loserIdEffective = choice2Id;
-      } else {
-        winnerIdEffective = choice2Id;
-        loserIdEffective = choice1Id;
-      }
-
-      const winnerParams = candidateParams[winnerIdEffective];
-      const loserParams = candidateParams[loserIdEffective];
-      const result = update(
-        globalAlpha,
-        globalBeta,
-        winnerParams.mu,
-        winnerParams.sigmaSq,
-        loserParams.mu,
-        loserParams.sigmaSq
-      );
-      // Update global annotator parameters.
-      globalAlpha = result.updatedAlpha;
-      globalBeta = result.updatedBeta;
-      // Update candidate skill parameters.
-      candidateParams[winnerIdEffective] = {
-        mu: result.updatedMuWinner,
-        sigmaSq: result.updatedSigmaSqWinner,
-      };
-      candidateParams[loserIdEffective] = {
-        mu: result.updatedMuLoser,
-        sigmaSq: result.updatedSigmaSqLoser,
-      };
-    }
-
-    // Find eligible pairs, excluding those the user has already compared
+    // Identify the eligible pair with the smallest difference in mu.
     let bestPair: {
       choice1: (typeof choices)[number];
       choice2: (typeof choices)[number];
@@ -130,14 +66,12 @@ export const getNextComparisonHandler = async (
       for (let j = i + 1; j < choices.length; j++) {
         const id1 = choices[i].id;
         const id2 = choices[j].id;
-        const pairKey = `${Math.min(id1, id2)}-${Math.max(id1, id2)}`;
+        const pairKey = getPairKey(id1, id2);
 
-        // Skip if user has already compared this pair
+        // Skip if this pair has already been compared by the user.
         if (userComparedPairs.has(pairKey)) continue;
 
-        const diff = Math.abs(
-          candidateParams[id1].mu - candidateParams[id2].mu
-        );
+        const diff = Math.abs(choices[i].mu - choices[j].mu);
         if (diff < bestDiff) {
           bestDiff = diff;
           bestPair = { choice1: choices[i], choice2: choices[j] };
@@ -145,13 +79,16 @@ export const getNextComparisonHandler = async (
       }
     }
 
-    // If no eligible pair is found, all pairs have been compared by this user
+    // Calculate totals for informational purposes.
+    const totalComparisons = (choices.length * (choices.length - 1)) / 2;
+    const comparisonsRemaining = totalComparisons - userComparedPairs.size;
+
     if (!bestPair) {
       res.status(200).json({
         choice1: null,
         choice2: null,
-        comparisonsRemaining: 0,
-        totalComparisons: comparisons.length,
+        comparisonsRemaining,
+        totalComparisons,
       });
       return;
     }
@@ -159,9 +96,8 @@ export const getNextComparisonHandler = async (
     res.status(200).json({
       choice1: { id: bestPair.choice1.id, text: bestPair.choice1.text },
       choice2: { id: bestPair.choice2.id, text: bestPair.choice2.text },
-      comparisonsRemaining:
-        (choices.length * (choices.length - 1)) / 2 - userComparedPairs.size,
-      totalComparisons: (choices.length * (choices.length - 1)) / 2,
+      comparisonsRemaining,
+      totalComparisons,
     });
   } catch (error) {
     console.error(

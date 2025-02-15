@@ -8,22 +8,33 @@ datasource db {
 }
 
 model Decision {
-  id         String      @id @default(uuid()) 
-  title      String?
-  createdAt  DateTime    @default(now()) 
-  choices    Choice[]    
-  comparisons Comparison[] 
+  id          String       @id @default(uuid())
+  title       String?
+  createdAt   DateTime     @default(now())
+
+  // global annotator parameters
+  globalAlpha Float        @default(10.0)  // ALPHA_PRIOR
+  globalBeta  Float        @default(1.0)   // BETA_PRIOR
+
+  // prisma references
+  choices     Choice[]
+  comparisons Comparison[]
 }
 
+
 model Choice {
-  id         Int       @id @default(autoincrement()) 
-  decision   Decision  @relation(fields: [decisionId], references: [id]) 
-  decisionId String    @map("decision_id") 
-  text       String    
-  @@map("choices") 
+  id         Int       @id @default(autoincrement())
+  decision   Decision  @relation(fields: [decisionId], references: [id])
+  decisionId String    @map("decision_id")
+  text       String
+
+  mu         Float     @default(0)     // MU_PRIOR
+  sigmaSq    Float     @default(1.0)   // SIGMA_SQ_PRIOR
+
+  @@map("choices")
   choice1Comparisons Comparison[] @relation("choice1Comparisons")
   choice2Comparisons Comparison[] @relation("choice2Comparisons")
-  Comparison Comparison[]
+  Comparison         Comparison[]
 }
 
 model User {
