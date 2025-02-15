@@ -1,14 +1,15 @@
-import { Request, Response } from "express";
+import { Response } from "express";
 import { PrismaClient } from "@prisma/client";
-import { v4 as uuidv4 } from "uuid";
+import { AuthenticatedRequest } from "middleware/authMiddleware";
 
 const prisma = new PrismaClient();
 
 export const createDecisionHandler = async (
-  req: Request,
+  req: AuthenticatedRequest,
   res: Response
 ): Promise<void> => {
-  const { title, choices: choicesText, requiredComparisonsPerPair } = req.body;
+  const { title, choices: choicesText } = req.body;
+  const userId = req.user!.dbUser.id;
 
   // Validate that there is an array of at least two choices.
   if (!choicesText || !Array.isArray(choicesText) || choicesText.length < 2) {
@@ -19,16 +20,11 @@ export const createDecisionHandler = async (
     return;
   }
 
-  // Validate requiredComparisonsPerPair is a positive integer; default to 1 if not provided.
-  const reqComp = parseInt(requiredComparisonsPerPair, 10);
-  const comparisonsPerPair = !isNaN(reqComp) && reqComp > 0 ? reqComp : 1;
-
   try {
-    const decisionId = uuidv4();
     const decision = await prisma.decision.create({
       data: {
         title: title,
-        requiredComparisonsPerPair: comparisonsPerPair,
+        createdBy: userId,
         choices: {
           create: choicesText.map((text: string) => ({ text })),
         },
@@ -39,7 +35,7 @@ export const createDecisionHandler = async (
     console.info(
       `${new Date().toISOString()} - createDecisionHandler - Decision created successfully. Decision ID: ${
         decision.id
-      }, Title: ${title}, Choices: ${choicesText}, Required Comparisons per Pair: ${comparisonsPerPair}`
+      }, Title: ${title}, Choices: ${choicesText}`
     );
     res.status(201).json({ decisionId: decision.id });
   } catch (error) {
