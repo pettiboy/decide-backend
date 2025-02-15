@@ -1,10 +1,13 @@
 -- CreateTable
-CREATE TABLE "Decision" (
+CREATE TABLE "decisions" (
     "id" TEXT NOT NULL,
     "title" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdBy" TEXT NOT NULL,
+    "globalAlpha" DOUBLE PRECISION NOT NULL DEFAULT 10.0,
+    "globalBeta" DOUBLE PRECISION NOT NULL DEFAULT 1.0,
 
-    CONSTRAINT "Decision_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "decisions_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -12,6 +15,8 @@ CREATE TABLE "choices" (
     "id" SERIAL NOT NULL,
     "decision_id" TEXT NOT NULL,
     "text" TEXT NOT NULL,
+    "mu" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "sigmaSq" DOUBLE PRECISION NOT NULL DEFAULT 1.0,
 
     CONSTRAINT "choices_pkey" PRIMARY KEY ("id")
 );
@@ -39,30 +44,20 @@ CREATE TABLE "comparisons" (
     CONSTRAINT "comparisons_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
-CREATE TABLE "ranked_choices" (
-    "id" SERIAL NOT NULL,
-    "decision_id" TEXT NOT NULL,
-    "choice_id" INTEGER NOT NULL,
-    "rank" INTEGER NOT NULL,
-
-    CONSTRAINT "ranked_choices_pkey" PRIMARY KEY ("id")
-);
-
 -- CreateIndex
 CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "comparisons_decision_id_user_id_key" ON "comparisons"("decision_id", "user_id");
-
--- CreateIndex
-CREATE UNIQUE INDEX "ranked_choices_decision_id_rank_key" ON "ranked_choices"("decision_id", "rank");
+CREATE UNIQUE INDEX "comparisons_choice1_id_choice2_id_user_id_key" ON "comparisons"("choice1_id", "choice2_id", "user_id");
 
 -- AddForeignKey
-ALTER TABLE "choices" ADD CONSTRAINT "choices_decision_id_fkey" FOREIGN KEY ("decision_id") REFERENCES "Decision"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "decisions" ADD CONSTRAINT "decisions_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "comparisons" ADD CONSTRAINT "comparisons_decision_id_fkey" FOREIGN KEY ("decision_id") REFERENCES "Decision"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "choices" ADD CONSTRAINT "choices_decision_id_fkey" FOREIGN KEY ("decision_id") REFERENCES "decisions"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "comparisons" ADD CONSTRAINT "comparisons_decision_id_fkey" FOREIGN KEY ("decision_id") REFERENCES "decisions"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "comparisons" ADD CONSTRAINT "comparisons_choice1_id_fkey" FOREIGN KEY ("choice1_id") REFERENCES "choices"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -75,9 +70,3 @@ ALTER TABLE "comparisons" ADD CONSTRAINT "comparisons_winner_id_fkey" FOREIGN KE
 
 -- AddForeignKey
 ALTER TABLE "comparisons" ADD CONSTRAINT "comparisons_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "ranked_choices" ADD CONSTRAINT "ranked_choices_decision_id_fkey" FOREIGN KEY ("decision_id") REFERENCES "Decision"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "ranked_choices" ADD CONSTRAINT "ranked_choices_choice_id_fkey" FOREIGN KEY ("choice_id") REFERENCES "choices"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
