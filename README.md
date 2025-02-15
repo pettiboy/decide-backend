@@ -2,7 +2,7 @@
 
 Break large problems into smaller parts. Instead of choosing among many options at once, Decide uses pairwise comparisons to simplify decision-making.
 
-[Decide Fronend](https://github.com/pettiboy/decide-frontend) consumes these APIs.
+[Decide Frontend](https://github.com/pettiboy/decide-frontend) consumes these APIs.
 
 Try the app - [decide.somehow.dev](https://decide.somehow.dev/)
 
