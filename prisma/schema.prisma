@@ -11,6 +11,8 @@ model Decision {
   id          String       @id @default(uuid())
   title       String?
   createdAt   DateTime     @default(now())
+  createdBy   String
+  creator     User        @relation(fields: [createdBy], references: [id])
 
   // global annotator parameters
   globalAlpha Float        @default(10.0)  // ALPHA_PRIOR
@@ -19,6 +21,8 @@ model Decision {
   // prisma references
   choices     Choice[]
   comparisons Comparison[]
+
+  @@map("decisions")
 }
 
 
@@ -42,6 +46,7 @@ model User {
   email         String?      @unique
   createdAt     DateTime     @default(now())
   comparisons   Comparison[]
+  decisions     Decision[]
   
   @@map("users")
 }

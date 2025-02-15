@@ -7,6 +7,7 @@ import { getResultsHandler } from "./handlers/getResultsHandler";
 import cors from "cors";
 import { authMiddleware } from "./middleware/authMiddleware";
 import { generateTitleHandler } from "./handlers/generateTitleHandler";
+import { getMyDecisionsHandler } from "./handlers/getMyDecisionsHandler";
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -61,6 +62,8 @@ app.get("/decisions/:decisionId/results", authMiddleware, getResultsHandler);
 app.post("/decisions", authMiddleware, createDecisionHandler);
 
 app.post("/generate-title", authMiddleware, generateTitleHandler);
+
+app.get("/my-decisions", authMiddleware, getMyDecisionsHandler);
 
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);

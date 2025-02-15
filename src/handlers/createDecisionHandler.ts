@@ -1,14 +1,15 @@
-import { Request, Response } from "express";
+import { Response } from "express";
 import { PrismaClient } from "@prisma/client";
-import { v4 as uuidv4 } from "uuid";
+import { AuthenticatedRequest } from "middleware/authMiddleware";
 
 const prisma = new PrismaClient();
 
 export const createDecisionHandler = async (
-  req: Request,
+  req: AuthenticatedRequest,
   res: Response
 ): Promise<void> => {
   const { title, choices: choicesText } = req.body;
+  const userId = req.user!.dbUser.id;
 
   // Validate that there is an array of at least two choices.
   if (!choicesText || !Array.isArray(choicesText) || choicesText.length < 2) {
@@ -23,6 +24,7 @@ export const createDecisionHandler = async (
     const decision = await prisma.decision.create({
       data: {
         title: title,
+        createdBy: userId,
         choices: {
           create: choicesText.map((text: string) => ({ text })),
         },
