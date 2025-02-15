@@ -33,7 +33,7 @@ const corsOptions = {
     return callback(new Error("Origin not allowed by CORS"));
   },
 };
-app.use(cors());
+app.use(cors(corsOptions));
 
 app.get("/", async (req: Request, res: Response) => {
   try {
