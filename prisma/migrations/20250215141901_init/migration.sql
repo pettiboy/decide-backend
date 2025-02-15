@@ -1,6 +1,7 @@
 -- CreateTable
 CREATE TABLE "Decision" (
     "id" TEXT NOT NULL,
+    "title" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Decision_pkey" PRIMARY KEY ("id")
@@ -16,6 +17,15 @@ CREATE TABLE "choices" (
 );
 
 -- CreateTable
+CREATE TABLE "users" (
+    "id" TEXT NOT NULL,
+    "email" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "users_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "comparisons" (
     "id" SERIAL NOT NULL,
     "decision_id" TEXT NOT NULL,
@@ -23,6 +33,8 @@ CREATE TABLE "comparisons" (
     "choice2_id" INTEGER NOT NULL,
     "winner_id" INTEGER,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "servedAt" TIMESTAMP(3),
+    "user_id" TEXT NOT NULL,
 
     CONSTRAINT "comparisons_pkey" PRIMARY KEY ("id")
 );
@@ -36,6 +48,12 @@ CREATE TABLE "ranked_choices" (
 
     CONSTRAINT "ranked_choices_pkey" PRIMARY KEY ("id")
 );
+
+-- CreateIndex
+CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "comparisons_decision_id_user_id_key" ON "comparisons"("decision_id", "user_id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "ranked_choices_decision_id_rank_key" ON "ranked_choices"("decision_id", "rank");
@@ -54,6 +72,9 @@ ALTER TABLE "comparisons" ADD CONSTRAINT "comparisons_choice2_id_fkey" FOREIGN K
 
 -- AddForeignKey
 ALTER TABLE "comparisons" ADD CONSTRAINT "comparisons_winner_id_fkey" FOREIGN KEY ("winner_id") REFERENCES "choices"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "comparisons" ADD CONSTRAINT "comparisons_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ranked_choices" ADD CONSTRAINT "ranked_choices_decision_id_fkey" FOREIGN KEY ("decision_id") REFERENCES "Decision"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

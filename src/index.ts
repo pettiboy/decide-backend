@@ -5,6 +5,7 @@ import { getNextComparisonHandler } from "./handlers/getNextComparisonHandler";
 import { submitComparisonHandler } from "./handlers/submitComparisonHandler";
 import { getResultsHandler } from "./handlers/getResultsHandler";
 import cors from "cors";
+import { authMiddleware } from "./middleware/authMiddleware";
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -43,10 +44,20 @@ app.get("/", async (req: Request, res: Response) => {
   }
 });
 
-app.post("/decisions", createDecisionHandler);
-app.get("/decisions/:decisionId/comparisons/next", getNextComparisonHandler);
-app.post("/decisions/:decisionId/comparisons", submitComparisonHandler);
-app.get("/decisions/:decisionId/results", getResultsHandler);
+// Protected routes
+app.post(
+  "/decisions/:decisionId/comparisons",
+  authMiddleware,
+  submitComparisonHandler
+);
+app.get(
+  "/decisions/:decisionId/comparisons/next",
+  authMiddleware,
+  getNextComparisonHandler
+);
+app.get("/decisions/:decisionId/results", authMiddleware, getResultsHandler);
+
+app.post("/decisions", authMiddleware, createDecisionHandler);
 
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);

@@ -28,7 +28,6 @@ export const createDecisionHandler = async (
     const decision = await prisma.decision.create({
       data: {
         title: title,
-        requiredComparisonsPerPair: comparisonsPerPair,
         choices: {
           create: choicesText.map((text: string) => ({ text })),
         },

@@ -40,7 +40,7 @@ export const getNextComparisonHandler = async (
     const comparisons = decision.comparisons;
 
     // 2. Get required comparisons per pair.
-    const requiredComparisonsPerPair = decision.requiredComparisonsPerPair || 1;
+    const requiredComparisonsPerPair = 1; // Fixed value since we only allow one vote per user
     const n = choices.length;
     // Total expected comparisons (for all distinct pairs).
     const totalComparisons = ((n * (n - 1)) / 2) * requiredComparisonsPerPair;

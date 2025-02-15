@@ -1,6 +1,12 @@
 import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
-import { update, MU_PRIOR, SIGMA_SQ_PRIOR, ALPHA_PRIOR, BETA_PRIOR } from "../algorithms/crowdBT";
+import {
+  update,
+  MU_PRIOR,
+  SIGMA_SQ_PRIOR,
+  ALPHA_PRIOR,
+  BETA_PRIOR,
+} from "../algorithms/crowdBT";
 
 const prisma = new PrismaClient();
 
@@ -36,7 +42,7 @@ export const getResultsHandler = async (
     const comparisons = decision.comparisons;
 
     // 2. Determine total expected comparisons and progress.
-    const requiredComparisonsPerPair = decision.requiredComparisonsPerPair || 1;
+    const requiredComparisonsPerPair = 1; // Fixed value since we only allow one vote per user
     const n = choices.length;
     const expectedComparisons =
       ((n * (n - 1)) / 2) * requiredComparisonsPerPair;
@@ -48,14 +54,16 @@ export const getResultsHandler = async (
     // 3. Initialize candidate parameters using Crowd‑BT priors.
     let globalAlpha = ALPHA_PRIOR;
     let globalBeta = BETA_PRIOR;
-    const candidateParams: { [key: number]: { mu: number; sigmaSq: number } } = {};
+    const candidateParams: { [key: number]: { mu: number; sigmaSq: number } } =
+      {};
     choices.forEach((choice) => {
       candidateParams[choice.id] = { mu: MU_PRIOR, sigmaSq: SIGMA_SQ_PRIOR };
     });
 
     // 4. Process all comparisons (sorted by creation date) to update candidates.
     const sortedComparisons = comparisons.sort(
-      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      (a, b) =>
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     );
     for (const comp of sortedComparisons) {
       // Only process comparisons with a recorded winner.

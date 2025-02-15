@@ -1,14 +1,34 @@
 import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
+import { AuthenticatedRequest } from "../middleware/authMiddleware";
 
 const prisma = new PrismaClient();
 
 export const submitComparisonHandler = async (
-  req: Request,
+  req: AuthenticatedRequest,
   res: Response
 ): Promise<void> => {
   const { decisionId } = req.params;
   let { choice1Id, choice2Id, chosenOption } = req.body;
+  const userId = req.user?.uid;
+
+  if (!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  // Check if user has already voted
+  const existingVote = await prisma.comparison.findFirst({
+    where: {
+      decisionId,
+      userId,
+    },
+  });
+
+  if (existingVote) {
+    res.status(409).json({ error: "You have already voted on this decision" });
+    return;
+  }
 
   // Validate required fields.
   if (
@@ -63,35 +83,15 @@ export const submitComparisonHandler = async (
     return;
   }
 
-  // Determine how many comparisons per pair are required.
-  const requiredComparisonsPerPair = decision.requiredComparisonsPerPair || 1;
-
-  // Count how many comparisons have already been recorded for this normalized pair.
-  const existingCount = await prisma.comparison.count({
-    where: {
-      decisionId: decisionId,
-      choice1Id: normalizedChoice1Id,
-      choice2Id: normalizedChoice2Id,
-    },
-  });
-
-  if (existingCount >= requiredComparisonsPerPair) {
-    res.status(409).json({
-      error:
-        "This comparison has already been recorded the required number of times.",
-    });
-    return;
-  }
-
-  // Create the Comparison record.
+  // Create the Comparison record with userId
   try {
     await prisma.comparison.create({
       data: {
-        decision: { connect: { id: decisionId } },
-        // Use the normalized IDs.
-        choice1: { connect: { id: normalizedChoice1Id } },
-        choice2: { connect: { id: normalizedChoice2Id } },
-        ...(winnerId ? { winner: { connect: { id: winnerId } } } : {}),
+        decisionId,
+        choice1Id: normalizedChoice1Id,
+        choice2Id: normalizedChoice2Id,
+        winnerId,
+        userId,
         servedAt: new Date(),
       },
     });
