@@ -15,10 +15,13 @@ services:
     build: .
     container_name: decide-app
     ports:
-      - "3009:3000"
+      - "3000:${PORT}"
     environment:
       DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?schema=public
       FIREBASE_SERVICE_ACCOUNT_KEY: ${FIREBASE_SERVICE_ACCOUNT_KEY}
+      PORT: ${PORT}
+      NODE_ENV: ${NODE_ENV}
+      GROQ_API_KEY: ${GROQ_API_KEY}
     depends_on:
       - db
     restart: always
