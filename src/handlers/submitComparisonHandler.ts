@@ -61,8 +61,10 @@ export const submitComparisonHandler = async (
     winnerId = normalizedChoice1Id === choice1Id ? choice1Id : choice2Id;
   } else if (chosenOption === "choice 2") {
     winnerId = normalizedChoice1Id === choice1Id ? choice2Id : choice1Id;
+  } else {
+    res.status(200).json({ status: "skip_acknowledged" });
+    return;
   }
-  // For "skip", winnerId remains null.
 
   // Check if the decision exists and verify that both choices belong to it.
   const decision = await prisma.decision.findUnique({

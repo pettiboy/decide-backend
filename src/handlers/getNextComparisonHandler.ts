@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+import { Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import {
   update,
@@ -7,22 +7,31 @@ import {
   ALPHA_PRIOR,
   BETA_PRIOR,
 } from "../algorithms/crowdBT";
+import { AuthenticatedRequest } from "../middleware/authMiddleware";
 
 const prisma = new PrismaClient();
 
 export const getNextComparisonHandler = async (
-  req: Request,
+  req: AuthenticatedRequest,
   res: Response
 ): Promise<void> => {
   const { decisionId } = req.params;
+  const userId = req.user!.dbUser.id;
 
   try {
-    // 1. Fetch the decision along with its choices and comparisons.
+    // 1. Fetch the decision along with its choices and all comparisons
     const decision = await prisma.decision.findUnique({
       where: { id: decisionId },
       include: {
         choices: true,
-        comparisons: true,
+        comparisons: {
+          where: {
+            OR: [
+              { userId }, // Get user's own comparisons for filtering
+              { winnerId: { not: null } }, // Get others' comparisons for scoring
+            ],
+          },
+        },
       },
     });
     if (!decision) {
@@ -39,13 +48,18 @@ export const getNextComparisonHandler = async (
     }
     const comparisons = decision.comparisons;
 
-    // 2. Get required comparisons per pair.
-    const requiredComparisonsPerPair = 1; // Fixed value since we only allow one vote per user
-    const n = choices.length;
-    // Total expected comparisons (for all distinct pairs).
-    const totalComparisons = ((n * (n - 1)) / 2) * requiredComparisonsPerPair;
-    // How many comparisons remain to be done in total.
-    const comparisonsRemaining = totalComparisons - comparisons.length;
+    // Get pairs this user has already compared
+    const userComparedPairs = new Set(
+      comparisons
+        .filter((comp) => comp.userId === userId)
+        .map(
+          (comp) =>
+            `${Math.min(comp.choice1Id, comp.choice2Id)}-${Math.max(
+              comp.choice1Id,
+              comp.choice2Id
+            )}`
+        )
+    );
 
     // 3. Update candidate parameters using the Crowd‑BT algorithm.
     let globalAlpha = ALPHA_PRIOR;
@@ -98,44 +112,39 @@ export const getNextComparisonHandler = async (
       };
     }
 
-    // 4. From all possible pairs, identify those that have been compared
-    // fewer times than required, and choose the pair with the smallest absolute mu difference.
+    // Find eligible pairs, excluding those the user has already compared
     let bestPair: {
       choice1: (typeof choices)[number];
       choice2: (typeof choices)[number];
     } | null = null;
     let bestDiff = Infinity;
+
     for (let i = 0; i < choices.length; i++) {
       for (let j = i + 1; j < choices.length; j++) {
         const id1 = choices[i].id;
         const id2 = choices[j].id;
-        // Count the comparisons done for this pair (order doesn't matter).
-        const pairCount = comparisons.filter(
-          (comp) =>
-            (comp.choice1Id === id1 && comp.choice2Id === id2) ||
-            (comp.choice1Id === id2 && comp.choice2Id === id1)
-        ).length;
-        if (pairCount < requiredComparisonsPerPair) {
-          const diff = Math.abs(
-            candidateParams[id1].mu - candidateParams[id2].mu
-          );
-          if (diff < bestDiff) {
-            bestDiff = diff;
-            bestPair = { choice1: choices[i], choice2: choices[j] };
-          }
+        const pairKey = `${Math.min(id1, id2)}-${Math.max(id1, id2)}`;
+
+        // Skip if user has already compared this pair
+        if (userComparedPairs.has(pairKey)) continue;
+
+        const diff = Math.abs(
+          candidateParams[id1].mu - candidateParams[id2].mu
+        );
+        if (diff < bestDiff) {
+          bestDiff = diff;
+          bestPair = { choice1: choices[i], choice2: choices[j] };
         }
       }
     }
 
-    // 5. If no eligible pair is found then all comparisons are complete.
+    // If no eligible pair is found, all pairs have been compared by this user
     if (!bestPair) {
       res.status(200).json({
-        // Even though a pair is required by the frontend, if no comparison remains
-        // return a dummy pair (the frontend should then navigate away).
-        choice1: { id: choices[0].id, text: choices[0].text },
-        choice2: { id: choices[1].id, text: choices[1].text },
+        choice1: null,
+        choice2: null,
         comparisonsRemaining: 0,
-        totalComparisons,
+        totalComparisons: comparisons.length,
       });
       return;
     }
@@ -143,8 +152,9 @@ export const getNextComparisonHandler = async (
     res.status(200).json({
       choice1: { id: bestPair.choice1.id, text: bestPair.choice1.text },
       choice2: { id: bestPair.choice2.id, text: bestPair.choice2.text },
-      comparisonsRemaining,
-      totalComparisons,
+      comparisonsRemaining:
+        (choices.length * (choices.length - 1)) / 2 - userComparedPairs.size,
+      totalComparisons: (choices.length * (choices.length - 1)) / 2,
     });
   } catch (error) {
     console.error(
