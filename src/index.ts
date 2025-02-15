@@ -6,6 +6,7 @@ import { submitComparisonHandler } from "./handlers/submitComparisonHandler";
 import { getResultsHandler } from "./handlers/getResultsHandler";
 import cors from "cors";
 import { authMiddleware } from "./middleware/authMiddleware";
+import { generateTitleHandler } from "./handlers/generateTitleHandler";
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -58,6 +59,8 @@ app.get(
 app.get("/decisions/:decisionId/results", authMiddleware, getResultsHandler);
 
 app.post("/decisions", authMiddleware, createDecisionHandler);
+
+app.post("/generate-title", authMiddleware, generateTitleHandler);
 
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
