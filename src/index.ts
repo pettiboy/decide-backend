@@ -5,6 +5,10 @@ import { getNextComparisonHandler } from "./handlers/getNextComparisonHandler";
 import { submitComparisonHandler } from "./handlers/submitComparisonHandler";
 import { getResultsHandler } from "./handlers/getResultsHandler";
 import cors from "cors";
+import { authMiddleware } from "./middleware/authMiddleware";
+import { generateTitleHandler } from "./handlers/generateTitleHandler";
+import { getMyDecisionsHandler } from "./handlers/getMyDecisionsHandler";
+import { getDecisionVoterCountHandler } from "./handlers/getDecisionVoterCountHandler";
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -29,7 +33,7 @@ const corsOptions = {
     return callback(new Error("Origin not allowed by CORS"));
   },
 };
-app.use(cors(corsOptions));
+app.use(cors());
 
 app.get("/", async (req: Request, res: Response) => {
   try {
@@ -43,10 +47,30 @@ app.get("/", async (req: Request, res: Response) => {
   }
 });
 
-app.post("/decisions", createDecisionHandler);
-app.get("/decisions/:decisionId/comparisons/next", getNextComparisonHandler);
-app.post("/decisions/:decisionId/comparisons", submitComparisonHandler);
-app.get("/decisions/:decisionId/results", getResultsHandler);
+// Protected routes
+app.post(
+  "/decisions/:decisionId/comparisons",
+  authMiddleware,
+  submitComparisonHandler
+);
+app.get(
+  "/decisions/:decisionId/comparisons/next",
+  authMiddleware,
+  getNextComparisonHandler
+);
+app.get("/decisions/:decisionId/results", authMiddleware, getResultsHandler);
+
+app.post("/decisions", authMiddleware, createDecisionHandler);
+
+app.post("/generate-title", authMiddleware, generateTitleHandler);
+
+app.get("/my-decisions", authMiddleware, getMyDecisionsHandler);
+
+app.get(
+  "/decisions/:decisionId/voter-count",
+  authMiddleware,
+  getDecisionVoterCountHandler
+);
 
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);

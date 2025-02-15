@@ -1,13 +1,12 @@
 import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
-import { update, MU_PRIOR, SIGMA_SQ_PRIOR, ALPHA_PRIOR, BETA_PRIOR } from "../algorithms/crowdBT";
 
 const prisma = new PrismaClient();
 
 /**
  * GET /decisions/{decisionId}/results
- * Calculates the ranking of choices for a decision using a Schulze (Gavel-like) algorithm.
- * Uses the decision's stored requiredComparisonsPerPair field (if any) to optionally mark the ranking as incomplete.
+ * Calculates the ranking of choices for a decision.
+ * With incremental updates, candidate parameters (mu and sigmaSq) are stored on each Choice.
  */
 export const getResultsHandler = async (
   req: Request,
@@ -16,105 +15,58 @@ export const getResultsHandler = async (
   const { decisionId } = req.params;
 
   try {
-    // 1. Fetch the decision along with its choices and comparisons.
+    // 1. Fetch the decision with its choices (which now include stored mu and sigmaSq)
+    //    and comparisons (to determine ranking completeness).
     const decision = await prisma.decision.findUnique({
       where: { id: decisionId },
       include: {
         choices: true,
-        comparisons: true,
+        comparisons: {
+          where: { winnerId: { not: null } },
+        },
       },
     });
+
     if (!decision) {
       res.status(404).json({ error: "Decision not found" });
       return;
     }
+
     const choices = decision.choices;
     if (!choices || choices.length < 2) {
       res.status(400).json({ error: "Not enough choices to compute ranking." });
       return;
     }
-    const comparisons = decision.comparisons;
 
-    // 2. Determine total expected comparisons and progress.
-    const requiredComparisonsPerPair = decision.requiredComparisonsPerPair || 1;
+    // 2. Determine if the ranking is incomplete based on expected comparisons.
+    const requiredComparisonsPerPair = 1; // one vote per user per pair
     const n = choices.length;
     const expectedComparisons =
       ((n * (n - 1)) / 2) * requiredComparisonsPerPair;
+    const comparisons = decision.comparisons;
     const rankingIncomplete = comparisons.length < expectedComparisons;
     const comparisonsNeeded = rankingIncomplete
       ? expectedComparisons - comparisons.length
       : 0;
 
-    // 3. Initialize candidate parameters using Crowd‑BT priors.
-    let globalAlpha = ALPHA_PRIOR;
-    let globalBeta = BETA_PRIOR;
-    const candidateParams: { [key: number]: { mu: number; sigmaSq: number } } = {};
-    choices.forEach((choice) => {
-      candidateParams[choice.id] = { mu: MU_PRIOR, sigmaSq: SIGMA_SQ_PRIOR };
-    });
-
-    // 4. Process all comparisons (sorted by creation date) to update candidates.
-    const sortedComparisons = comparisons.sort(
-      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-    );
-    for (const comp of sortedComparisons) {
-      // Only process comparisons with a recorded winner.
-      if (comp.winnerId === null) continue;
-      const { choice1Id, choice2Id, winnerId } = comp;
-      let winnerEffective: number, loserEffective: number;
-      if (winnerId === choice1Id) {
-        winnerEffective = choice1Id;
-        loserEffective = choice2Id;
-      } else {
-        winnerEffective = choice2Id;
-        loserEffective = choice1Id;
-      }
-
-      const winnerParams = candidateParams[winnerEffective];
-      const loserParams = candidateParams[loserEffective];
-      const result = update(
-        globalAlpha,
-        globalBeta,
-        winnerParams.mu,
-        winnerParams.sigmaSq,
-        loserParams.mu,
-        loserParams.sigmaSq
-      );
-      // Update global annotator parameters.
-      globalAlpha = result.updatedAlpha;
-      globalBeta = result.updatedBeta;
-      // Update candidate parameters.
-      candidateParams[winnerEffective] = {
-        mu: result.updatedMuWinner,
-        sigmaSq: result.updatedSigmaSqWinner,
-      };
-      candidateParams[loserEffective] = {
-        mu: result.updatedMuLoser,
-        sigmaSq: result.updatedSigmaSqLoser,
-      };
-    }
-
-    // 5. Build ranking results using updated params.
+    // 3. Build ranking results using the stored candidate parameters.
+    // Each choice already has an up-to-date mu and sigmaSq from incremental updates.
     const results = choices.map((choice) => ({
       id: choice.id,
       text: choice.text,
-      score: candidateParams[choice.id].mu,
-      directWins: 0, // Not computed with Crowd‑BT; kept for response format consistency.
+      score: choice.mu,
+      sigmaSq: choice.sigmaSq,
+      directWins: 0, // Placeholder for response consistency.
     }));
 
-    // Sort candidates by descending score (μ). In the event of a tie, lower variance wins.
+    // 4. Sort results by descending score (mu). In case of ties, lower sigmaSq wins.
     results.sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
-      const sigmaA = candidateParams[a.id].sigmaSq;
-      const sigmaB = candidateParams[b.id].sigmaSq;
-      if (sigmaA !== sigmaB) return sigmaA - sigmaB;
-      if (typeof a.id === "number" && typeof b.id === "number") {
-        return a.id - b.id;
-      }
-      return a.id.toString().localeCompare(b.id.toString());
+      if (a.sigmaSq !== b.sigmaSq) return a.sigmaSq - b.sigmaSq;
+      return a.id - b.id;
     });
 
-    // 6. Assign ranks (ties receive the same rank).
+    // 5. Assign ranks (ties receive the same rank).
     let currentRank = 1;
     let lastScore: number | null = null;
     const rankedResults = results.map((result, idx) => {
@@ -130,6 +82,10 @@ export const getResultsHandler = async (
       rankedResults
     );
     res.status(200).json({
+      decision: {
+        id: decision.id,
+        title: decision.title,
+      },
       rankedChoices: rankedResults,
       rankingIncomplete,
       comparisonsNeeded,

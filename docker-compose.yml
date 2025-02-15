@@ -15,9 +15,10 @@ services:
     build: .
     container_name: decide-app
     ports:
-      - "3000:3000"
+      - "3009:3000"
     environment:
       DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?schema=public
+      FIREBASE_SERVICE_ACCOUNT_KEY: ${FIREBASE_SERVICE_ACCOUNT_KEY}
     depends_on:
       - db
     restart: always

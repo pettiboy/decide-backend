@@ -8,25 +8,47 @@ datasource db {
 }
 
 model Decision {
-  id         String      @id @default(uuid()) 
-  title      String?
-  requiredComparisonsPerPair  Int? @default(1)
-  createdAt  DateTime    @default(now()) 
-  choices    Choice[]    
-  comparisons Comparison[] 
-  rankedChoices RankedChoice[] 
+  id          String       @id @default(uuid())
+  title       String?
+  createdAt   DateTime     @default(now())
+  createdBy   String
+  creator     User        @relation(fields: [createdBy], references: [id])
+
+  // global annotator parameters
+  globalAlpha Float        @default(10.0)  // ALPHA_PRIOR
+  globalBeta  Float        @default(1.0)   // BETA_PRIOR
+
+  // prisma references
+  choices     Choice[]
+  comparisons Comparison[]
+
+  @@map("decisions")
 }
 
+
 model Choice {
-  id         Int       @id @default(autoincrement()) 
-  decision   Decision  @relation(fields: [decisionId], references: [id]) 
-  decisionId String    @map("decision_id") 
-  text       String    
-  @@map("choices") 
+  id         Int       @id @default(autoincrement())
+  decision   Decision  @relation(fields: [decisionId], references: [id])
+  decisionId String    @map("decision_id")
+  text       String
+
+  mu         Float     @default(0)     // MU_PRIOR
+  sigmaSq    Float     @default(1.0)   // SIGMA_SQ_PRIOR
+
+  @@map("choices")
   choice1Comparisons Comparison[] @relation("choice1Comparisons")
   choice2Comparisons Comparison[] @relation("choice2Comparisons")
-  Comparison Comparison[]
-  RankedChoice RankedChoice[]
+  Comparison         Comparison[]
+}
+
+model User {
+  id            String       @id
+  email         String?      @unique
+  createdAt     DateTime     @default(now())
+  comparisons   Comparison[]
+  decisions     Decision[]
+  
+  @@map("users")
 }
 
 model Comparison {
@@ -40,18 +62,10 @@ model Comparison {
   winnerId     Int?       @map("winner_id")
   winner       Choice?    @relation(fields: [winnerId], references: [id])
   createdAt    DateTime   @default(now())
-  servedAt     DateTime?  
+  servedAt     DateTime?
+  user         User       @relation(fields: [userId], references: [id])
+  userId       String     @map("user_id")
   
   @@map("comparisons")
-}
-
-model RankedChoice {
-  id         Int       @id @default(autoincrement())
-  decision   Decision  @relation(fields: [decisionId], references: [id])
-  decisionId String    @map("decision_id")
-  choiceId   Int       @map("choice_id")
-  choice     Choice    @relation(fields: [choiceId], references: [id])
-  rank       Int       
-  @@unique([decisionId, rank]) 
-  @@map("ranked_choices") 
+  @@unique([choice1Id, choice2Id, userId])
 }

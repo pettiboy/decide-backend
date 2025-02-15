@@ -25,6 +25,31 @@ npx prisma migrate deploy
 npm run dev
 ```
 
+### Database Migrations
+
+After making changes to the Prisma schema (`prisma/schema.prisma`), follow these steps:
+
+1. Create a new migration:
+
+```zsh
+npx prisma migrate dev
+```
+
+This command will:
+
+- Detect changes in your Prisma schema
+- Create a new migration file
+- Apply the migration to your database
+- Generate the Prisma Client
+
+2. For production deployments, use:
+
+```zsh
+npx prisma migrate deploy
+```
+
+This will apply any pending migrations to your database.
+
 ## Credits
 
 This is just a simplified version of [gavel](https://github.com/anishathalye/gavel)
