@@ -83,21 +83,28 @@ export const getNextComparisonHandler = async (
     const totalComparisons = (choices.length * (choices.length - 1)) / 2;
     const comparisonsRemaining = totalComparisons - userComparedPairs.size;
 
+    const baseResponse = {
+      decision: {
+        id: decision.id,
+        title: decision.title,
+      },
+      comparisonsRemaining,
+      totalComparisons,
+    };
+
     if (!bestPair) {
       res.status(200).json({
+        ...baseResponse,
         choice1: null,
         choice2: null,
-        comparisonsRemaining,
-        totalComparisons,
       });
       return;
     }
 
     res.status(200).json({
+      ...baseResponse,
       choice1: { id: bestPair.choice1.id, text: bestPair.choice1.text },
       choice2: { id: bestPair.choice2.id, text: bestPair.choice2.text },
-      comparisonsRemaining,
-      totalComparisons,
     });
   } catch (error) {
     console.error(

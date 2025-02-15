@@ -82,6 +82,10 @@ export const getResultsHandler = async (
       rankedResults
     );
     res.status(200).json({
+      decision: {
+        id: decision.id,
+        title: decision.title,
+      },
       rankedChoices: rankedResults,
       rankingIncomplete,
       comparisonsNeeded,
