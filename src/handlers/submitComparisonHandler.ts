@@ -17,19 +17,6 @@ export const submitComparisonHandler = async (
     return;
   }
 
-  // Check if user has already voted
-  const existingVote = await prisma.comparison.findFirst({
-    where: {
-      decisionId,
-      userId,
-    },
-  });
-
-  if (existingVote) {
-    res.status(409).json({ error: "You have already voted on this decision" });
-    return;
-  }
-
   // Validate required fields.
   if (
     choice1Id === undefined ||
@@ -52,6 +39,20 @@ export const submitComparisonHandler = async (
   // Normalize the pair so that the lower ID is always first.
   const normalizedChoice1Id = Math.min(choice1Id, choice2Id);
   const normalizedChoice2Id = Math.max(choice1Id, choice2Id);
+
+  // Check if user has already voted
+  const existingVote = await prisma.comparison.findFirst({
+    where: {
+      choice1Id: normalizedChoice1Id,
+      choice2Id: normalizedChoice2Id,
+      userId,
+    },
+  });
+
+  if (existingVote) {
+    res.status(409).json({ error: "You have already voted on this decision" });
+    return;
+  }
 
   // Determine the winner based on chosenOption.
   let winnerId: number | null = null;

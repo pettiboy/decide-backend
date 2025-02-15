@@ -13,7 +13,6 @@ model Decision {
   createdAt  DateTime    @default(now()) 
   choices    Choice[]    
   comparisons Comparison[] 
-  rankedChoices RankedChoice[] 
 }
 
 model Choice {
@@ -25,7 +24,6 @@ model Choice {
   choice1Comparisons Comparison[] @relation("choice1Comparisons")
   choice2Comparisons Comparison[] @relation("choice2Comparisons")
   Comparison Comparison[]
-  RankedChoice RankedChoice[]
 }
 
 model User {
@@ -53,16 +51,5 @@ model Comparison {
   userId       String     @map("user_id")
   
   @@map("comparisons")
-  @@unique([decisionId, userId])
-}
-
-model RankedChoice {
-  id         Int       @id @default(autoincrement())
-  decision   Decision  @relation(fields: [decisionId], references: [id])
-  decisionId String    @map("decision_id")
-  choiceId   Int       @map("choice_id")
-  choice     Choice    @relation(fields: [choiceId], references: [id])
-  rank       Int       
-  @@unique([decisionId, rank]) 
-  @@map("ranked_choices") 
+  @@unique([choice1Id, choice2Id, userId])
 }
