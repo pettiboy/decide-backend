@@ -19,8 +19,8 @@ app.use(express.json());
 // cors
 const allowedOrigins =
   process.env.NODE_ENV === "production"
-    ? ["https://decide.pettiboy.com"]
-    : ["https://decide.pettiboy.com", "http://localhost:5173"];
+    ? ["https://decide.somehow.dev"]
+    : ["https://decide.somehow.dev", "http://localhost:5173"];
 const corsOptions = {
   origin: (
     origin: string | undefined,

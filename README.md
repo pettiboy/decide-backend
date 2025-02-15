@@ -4,13 +4,14 @@ Break large problems into smaller parts. Instead of choosing among many options 
 
 [Decide Fronend](https://github.com/pettiboy/decide-frontend) consumes these APIs.
 
-Try the app - [decide.pettiboy.com](https://decide.pettiboy.com/)
+Try the app - [decide.somehow.dev](https://decide.somehow.dev/)
 
 ## Getting Started
 
 ### Running with docker compose
 
 ```zsh
+docker compose build
 docker compose up
 ```
 
