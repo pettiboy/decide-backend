@@ -27,7 +27,12 @@ export const getResultsHandler = async (
       where: { id: decisionId },
       include: {
         choices: true,
-        comparisons: true,
+        comparisons: {
+          where: {
+            // Only get comparisons with winners for scoring
+            winnerId: { not: null },
+          },
+        },
       },
     });
     if (!decision) {

@@ -19,21 +19,30 @@ export const getNextComparisonHandler = async (
   const userId = req.user!.dbUser.id;
 
   try {
-    // 1. Fetch the decision along with its choices and all comparisons
-    const decision = await prisma.decision.findUnique({
-      where: { id: decisionId },
-      include: {
-        choices: true,
-        comparisons: {
-          where: {
-            OR: [
-              { userId }, // Get user's own comparisons for filtering
-              { winnerId: { not: null } }, // Get others' comparisons for scoring
-            ],
+    // 1. Fetch all comparisons for scoring, and user's comparisons for filtering
+    const [decision, userComparisons] = await Promise.all([
+      prisma.decision.findUnique({
+        where: { id: decisionId },
+        include: {
+          choices: true,
+          comparisons: {
+            where: {
+              winnerId: { not: null }, // Get all winning comparisons for scoring
+            },
           },
         },
-      },
-    });
+      }),
+      prisma.comparison.findMany({
+        where: {
+          decisionId,
+          userId, // Get only this user's comparisons for filtering
+        },
+        select: {
+          choice1Id: true,
+          choice2Id: true,
+        },
+      }),
+    ]);
     if (!decision) {
       res.status(404).json({ error: "Decision not found" });
       return;
@@ -50,15 +59,13 @@ export const getNextComparisonHandler = async (
 
     // Get pairs this user has already compared
     const userComparedPairs = new Set(
-      comparisons
-        .filter((comp) => comp.userId === userId)
-        .map(
-          (comp) =>
-            `${Math.min(comp.choice1Id, comp.choice2Id)}-${Math.max(
-              comp.choice1Id,
-              comp.choice2Id
-            )}`
-        )
+      userComparisons.map(
+        (comp) =>
+          `${Math.min(comp.choice1Id, comp.choice2Id)}-${Math.max(
+            comp.choice1Id,
+            comp.choice2Id
+          )}`
+      )
     );
 
     // 3. Update candidate parameters using the Crowd‑BT algorithm.
