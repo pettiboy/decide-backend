@@ -25,7 +25,7 @@ export const getDecisionVoterCountHandler = async (
     }
 
     // Count unique users who have voted for the decision
-    const comparisons = await prisma.comparison.findMany({
+    const uniqueVoters = await prisma.comparison.findMany({
       where: {
         decisionId,
       },
@@ -35,15 +35,11 @@ export const getDecisionVoterCountHandler = async (
       distinct: ["userId"],
     });
 
-    const comparisonCount = comparisons.length;
-
-    const n = decision.choices.length;
-    const comparisonsPerVoter = (n * (n - 1)) / 2;
-    const numberOfVoters = Math.ceil(comparisonCount / comparisonsPerVoter);
+    const numberOfVoters = uniqueVoters?.length;
 
     res.status(200).json({
       decisionId,
-      numberOfVoters,
+      numberOfVoters: numberOfVoters || 0,
     });
   } catch (error) {
     console.error("Error fetching voter count:", error);
