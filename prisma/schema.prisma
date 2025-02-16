@@ -8,7 +8,7 @@ datasource db {
 }
 
 model Decision {
-  id        String   @id @default(uuid())
+  id        String   @id
   title     String?
   createdAt DateTime @default(now())
   createdBy String

@@ -1,6 +1,7 @@
 import { Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import { AuthenticatedRequest } from "middleware/authMiddleware";
+import { generateUniqueId } from "../utils/generateId";
 
 const prisma = new PrismaClient();
 
@@ -21,8 +22,18 @@ export const createDecisionHandler = async (
   }
 
   try {
+    // Generate a unique 7-character ID
+    const decisionId = await generateUniqueId(async (id) => {
+      const exists = await prisma.decision.findUnique({
+        where: { id },
+        select: { id: true },
+      });
+      return exists !== null;
+    });
+
     const decision = await prisma.decision.create({
       data: {
+        id: decisionId,
         title: title,
         createdBy: userId,
         choices: {
